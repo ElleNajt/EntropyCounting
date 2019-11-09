@@ -1,0 +1,172 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Nov  9 11:10:39 2019
+
+@author: Temporary
+"""
+
+import networkx as nx
+import random
+import math
+import numpy as np
+import scipy.linalg
+from scipy.sparse import csc_matrix
+import scipy
+from scipy import array, linalg, dot
+
+
+
+######Tree counting
+
+def log_number_trees(graph, weight = False):
+    '''Computes the log of the number of trees, weighted or unweighted. 
+    
+    :graph: The input graph
+    :weight: the edge variable name that describes the edge weights
+    
+    '''
+    #Kirkoffs is the determinant of the minor..
+    #at some point this should be replaced with a Cholesky decomposition based algorithm, which is supposedly faster. 
+    if weight == False:
+        m = nx.laplacian_matrix(graph)[1:,1:]
+    if weight == True:
+        m = nx.laplacian_matrix(graph, weight = "weight")[1:,1:]
+    m = csc_matrix(m)
+    splumatrix = scipy.sparse.linalg.splu(m)
+    diag_L = np.diag(splumatrix.L.A)
+    diag_U = np.diag(splumatrix.U.A)
+    S_log_L = [np.log(np.abs(s)) for s in diag_L]
+    S_log_U = [np.log(np.abs(s)) for s in diag_U]
+    LU_prod = np.sum(S_log_U) + np.sum(S_log_L)
+    return  LU_prod
+
+
+ 
+def assign_tree_to_point(graph, tree):
+    point = {}
+    for e in graph.edges():
+        if e in tree.edges():
+            point[e] = 1
+        else:
+            point[e] = 0
+    return point
+
+def entropy_gradient(graph, point):
+    
+    for e in graph.edges():
+        p = point[e]
+        graph.edges[e]['gradient'] =  ( -1 *  math.log(p) + math.log(1 - p) )
+        
+    #
+        
+    return graph
+
+def entropy(graph, point):
+    entropy = 0
+    for e in graph.edges():
+        p = point[e]
+        entropy += -1 * ( p * math.log(p) + (1 - p)* math.log( 1  - p))
+    
+    return entropy
+
+def move(graph, current_point, target_point, gamma):
+    new_point = {}
+    for e in graph.edges():
+        new_point[e] = (1 - gamma) * current_point[e] + gamma * target_point[e]
+    return new_point
+    
+
+def move_in_gradient_direction(graph, current_point):
+    
+    graph = entropy_gradient(graph, current_point)
+    
+
+    max_tree = nx.maximum_spanning_tree(graph, weight = 'gradient')
+    #We are trying to maximize the gradient, so we go in the direction where the gradient is maximized
+    
+    
+    target_point = assign_tree_to_point(graph, max_tree)
+    
+    #now we want to restrict the entropy function to the interval spanned by point and target_point, 
+    #then minimize entropy on the interval
+    
+    #TODO: Make this better later
+    
+    gamma = 2 / ( graph.graph["step"] + 2)
+    
+    new_point = move(graph, current_point, target_point, gamma)
+    graph.graph["step"] += 1
+    
+    return new_point
+
+def iterate(graph, initial_point, steps = 100):
+    
+    current_point = initial_point
+    for i in range(steps):
+        current_point = move_in_gradient_direction(graph, current_point)
+        
+    return current_point
+
+def create_initial_point(graph):
+    #we need to initialize in the interior of the spanning tree polytope, in order for the gradient to be well defined(? or anyway to not have infinite derivative) , so to do this, we will take E spanning trees, designed so that every edge is in one them, and then average.
+    list_of_points = []
+    for f in graph.edges():
+            
+        for e in graph.edges():
+            graph.edges[e]['weight'] = random.uniform(0,1)
+        
+        graph.edges[f]['weight'] = 10
+        
+        tree = nx.minimum_spanning_tree(graph, weight = 'weight')
+        
+        
+        tree_point = assign_tree_to_point(graph, tree)
+        list_of_points.append(tree_point)
+        
+    initial_point = {}
+    
+    for e in graph.edges():
+        initial_point[e] = 0
+    
+    for point in list_of_points:
+        for e in graph.edges():
+            initial_point[e] += point[e]
+            
+    for e in graph.edges():
+        initial_point[e] = initial_point[e] / len(list_of_points)
+    return initial_point
+
+
+def true_marginals(graph):
+    log_total_trees = log_number_trees(graph)
+    marginals = {}
+    for e in graph.edges():
+        contracted_graph = nx.contracted_edge(graph, e)
+        new_log_num_trees = log_number_trees(contracted_graph)
+        marginals[e] =np.exp( new_log_num_trees - log_total_trees)
+    return marginals
+    
+def difference(graph, point_1, point_2):
+    difference = {}
+    for e in graph.edges():
+        difference[e] = (point_1[e] - point_2[e])/point_2[e]*100
+        
+    return difference
+    
+
+
+m = 10
+graph = nx.grid_graph([m,m])
+
+#point will be a dictionary that keeps track of the current location in the ST polytope
+
+#We initialize point at an arbitrary spanning tree of G.
+
+graph.graph["step"] = 1
+initial_point = create_initial_point(graph)
+
+optimum = iterate(graph, initial_point, steps = 1000)
+
+marginals = true_marginals(graph)
+
+difference(graph, optimum, marginals)
