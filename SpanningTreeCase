@@ -140,12 +140,30 @@ def create_initial_point(graph):
 
 
 def true_marginals(graph):
-    log_total_trees = log_number_trees(graph)
+    
+    #Instead we'll compute the effective resistence
+    node_list = list(graph.nodes())
+    laplacian =nx.laplacian_matrix(graph, nodelist = node_list)
+    pseudo_inverse = np.linalg.pinv(laplacian.A)
+    
+    #log_total_trees = log_number_trees(graph)
+    
+    
     marginals = {}
     for e in graph.edges():
-        contracted_graph = nx.contracted_edge(graph, e)
-        new_log_num_trees = log_number_trees(contracted_graph)
-        marginals[e] =np.exp( new_log_num_trees - log_total_trees)
+        
+        i = node_list.index(e[0])
+        j = node_list.index(e[1])
+        
+        v = np.zeros(len(node_list))
+        v[i] = 1
+        v[j] = -1
+        
+        marginals[e] = np.matmul(np.matmul(v.T, pseudo_inverse), v)
+        
+        #contracted_graph = nx.contracted_edge(graph, e)
+        #new_log_num_trees = log_number_trees(contracted_graph)
+        #marginals[e] =np.exp( new_log_num_trees - log_total_trees)
     return marginals
     
 def difference(graph, point_1, point_2):
@@ -154,6 +172,8 @@ def difference(graph, point_1, point_2):
         difference[e] = (point_1[e] - point_2[e])/point_2[e]*100
         
     return difference
+
+    
     
 
 
@@ -162,14 +182,11 @@ graph = nx.grid_graph([m,m])
 
 graph = nx.gnm_random_graph(10,70)
 graph = nx.random_geometric_graph(55, .3)
-
-
-m = 2
 graph = nx.grid_graph([m,m])
 graph = nx.cycle_graph(10)
-graph = nx.complete_graph(5)
+graph = nx.complete_graph(4)
 
-graph =nx.complete_bipartite_graph(10,10)
+#graph =nx.complete_bipartite_graph(10,10)
 
 #seems to work for complete bipartite, and cycles
 #but not complete 
