@@ -177,13 +177,15 @@ def difference(graph, point_1, point_2):
     
 
 
-m = 2
-graph = nx.grid_graph([m,m])
 
 graph = nx.gnm_random_graph(10,70)
 graph = nx.random_geometric_graph(55, .3)
 graph = nx.grid_graph([m,m])
 graph = nx.cycle_graph(10)
+
+
+m = 4
+graph = nx.grid_graph([m,m])
 graph = nx.complete_graph(4)
 
 #graph =nx.complete_bipartite_graph(10,10)
@@ -202,10 +204,11 @@ nx.draw(graph,labels={v : str(v) for v in graph.nodes()})
 graph.graph["step"] = 1
 initial_point = create_initial_point(graph)
 
-optimum = iterate(graph, initial_point, steps = 1000)
+optimum = iterate(graph, initial_point, steps = 10000)
 
 marginals = true_marginals(graph)
 
-difference(graph, optimum, marginals)
 
 print(optimum)
+
+print(difference(graph, optimum, marginals).values())
