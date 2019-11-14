@@ -1,0 +1,255 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Nov  9 11:10:39 2019
+
+@author: Ashwin and Lorenzo
+"""
+
+import networkx as nx
+import random
+import math
+import numpy as np
+import scipy.linalg
+from scipy.sparse import csc_matrix
+import scipy
+import itertools
+from scipy import array, linalg, dot
+
+
+##Here a structure will be a point 
+
+
+#Discrete sturcutre will just be  agraph...
+#With graph.graph["Function"].
+
+ 
+def assign_structure_to_point(graph, structure):
+    #Now is "structure", an edge subgraph
+    point = {}
+    for e in graph.edges():
+        if e in structure.edges():
+            point[e] = 1
+        else:
+            point[e] = 0
+    return point
+
+def entropy_gradient(graph, point):
+    for e in graph.edges():
+        p = point[e]
+        graph.edges[e]['gradient'] =  ( -1 *  math.log(p) + math.log(1 - p) )
+    return graph
+
+def entropy(graph, point):
+    entropy = 0
+    for e in graph.edges():
+        p = point[e]
+        entropy += -1 * ( p * math.log(p) + (1 - p)* math.log( 1  - p))
+    
+    return entropy
+
+def move(graph, current_point, target_point, gamma):
+    new_point = {}
+    for e in graph.edges():
+        new_point[e] = (1 - gamma) * current_point[e] + gamma * target_point[e]
+    return new_point
+    
+
+def move_in_gradient_direction(graph, current_point, structure):
+    
+    graph = entropy_gradient(graph, current_point)
+    
+    
+    if structure.graph["max_function"] == nx.maximum_spanning_tree:
+            #Because nx returns different data types for these two situations :-()
+            max_structure = structure.graph["max_function"](graph, weight = 'gradient')
+        
+    if structure.graph["max_function"] == nx.max_weight_matching:
+        max_structure = nx.edge_subgraph(graph,structure.graph["max_function"](graph, weight = 'gradient'))
+
+    
+    #We are trying to maximize the gradient, so we go in the direction where the gradient is maximized
+    
+    
+    target_point = assign_structure_to_point(graph, max_structure)
+    
+    #now we want to restrict the entropy function to the interval spanned by point and target_point, 
+    #then minimize entropy on the interval
+    
+    #TODO: Make this better later
+    
+    gamma = 2 / ( graph.graph["step"] + 2)
+    
+    new_point = move(graph, current_point, target_point, gamma)
+    graph.graph["step"] += 1
+    
+    return new_point
+
+def iterate(graph, initial_point, structure,steps = 100):
+    
+    current_point = initial_point
+    for i in range(steps):
+        current_point = move_in_gradient_direction(graph, current_point, structure)
+        
+    return current_point
+
+def create_initial_point(graph, structure):
+    #we need to initialize in the interior of the spanning tree polytope, in order for the gradient to be well defined(? or anyway to not have infinite derivative) , so to do this, we will take E spanning trees, designed so that every edge is in one them, and then average.
+    list_of_points = []
+    for f in graph.edges():
+            
+        for e in graph.edges():
+            graph.edges[e]['temp_weight'] = random.uniform(0,1)
+        
+        graph.edges[f]['temp_weight'] = 10
+        
+        if structure.graph["max_function"] == nx.maximum_spanning_tree:
+            #Because nx returns different data types for these two situations :-()
+            substructure = structure.graph["max_function"](graph, weight = 'temp_weight')
+        
+        if structure.graph["max_function"] == nx.max_weight_matching:
+            #Because nx returns different data types for these two situations :-()
+            substructure = nx.edge_subgraph(graph,structure.graph["max_function"](graph, weight = 'temp_weight'))
+        
+        
+        
+        substructure_point = assign_structure_to_point(graph, substructure)
+        list_of_points.append(substructure_point)
+        
+    initial_point = {}
+    
+    for e in graph.edges():
+        initial_point[e] = 0
+    
+    for point in list_of_points:
+        for e in graph.edges():
+            initial_point[e] += point[e]
+            
+    for e in graph.edges():
+        initial_point[e] = initial_point[e] / len(list_of_points)
+    return initial_point
+
+
+def true_tree_marginals(graph):
+    
+    #Instead we'll compute the effective resistence
+    node_list = list(graph.nodes())
+    laplacian =nx.laplacian_matrix(graph, nodelist = node_list)
+    pseudo_inverse = np.linalg.pinv(laplacian.A)
+    
+    #log_total_trees = log_number_trees(graph)
+    
+    marginals = {}
+    for e in graph.edges():
+        
+        i = node_list.index(e[0])
+        j = node_list.index(e[1])
+        
+        v = np.zeros(len(node_list))
+        v[i] = 1
+        v[j] = -1
+        
+        marginals[e] = np.matmul(np.matmul(v.T, pseudo_inverse), v)
+        
+        #contracted_graph = nx.contracted_edge(graph, e)
+        #new_log_num_trees = log_number_trees(contracted_graph)
+        #marginals[e] =np.exp( new_log_num_trees - log_total_trees)
+    return marginals
+
+def true_matching_marginals(graph):
+    
+    edges = list(graph.edges())
+    
+    if len(graph.nodes) % 2 != 0:
+        return 0
+    
+    number_matchings = {}
+
+    for e in edges:
+        number_matchings[e]= 0
+        
+    for e in edges:
+        total_matchings = 0
+        for edge_set in itertools.combinations(edges, int(len(graph.nodes())/2)):
+            if nx.algorithms.matching.is_matching(graph, edge_set):
+                if e in edge_set:
+                    number_matchings[e] += 1
+                total_matchings += 1
+                
+    for e in edges:
+        number_matchings[e] = number_matchings[e] / total_matchings
+    return number_matchings
+    
+def difference(graph, point_1, point_2):
+    difference = {}
+    for e in graph.edges():
+        difference[e] = (point_1[e] - point_2[e])/point_2[e]*100
+        
+    return difference
+
+    
+ 
+#graph =nx.complete_bipartite_graph(10,10)
+
+#seems to work for complete bipartite, and cycles
+#but not complete 
+
+#...maybe can prove it for the cycle graph?
+
+#nx.draw(graph,labels={v : str(v) for v in graph.nodes()})
+
+#point will be a dictionary that keeps track of the current location in the ST polytope
+
+#We initialize point at an arbitrary spanning tree of G.
+
+def initialize_matching(graph):
+    structure = nx.Graph()
+    structure.graph["max_function"] = nx.max_weight_matching
+    initial_point = create_initial_point(graph, structure)
+    return [structure, initial_point]
+
+def initialize_spanning_tree(graph):
+    structure = nx.Graph()
+    structure.graph["max_function"] = nx.maximum_spanning_tree
+    initial_point = create_initial_point(graph, structure)
+    return [structure, initial_point]
+
+
+       
+m = 5
+
+
+
+graph = nx.gnm_random_graph(10,70)
+graph = nx.random_geometric_graph(55, .3)
+graph = nx.grid_graph([m,m])
+graph = nx.cycle_graph(10)
+
+
+
+graph = nx.complete_graph(4)
+
+
+#graph = nx.grid_graph([m,m])
+
+graph.graph["step"] = 1
+
+
+#structure_type = "tree"
+structure_type = "matching"
+
+if structure_type == "tree":
+    structure, initial_point = initialize_spanning_tree(graph)
+    marginals = true_tree_marginals(graph)
+
+if structure_type == "matching":
+    structure, initial_point = initialize_matching(graph)
+    marginals = true_matching_marginals(graph)
+
+optimum = iterate(graph, initial_point, structure, steps = 1000)
+
+
+print(optimum)
+
+print(difference(graph, optimum, marginals).values())
+
+#optimum = iterate(graph, optimum, steps = 100, structure)
