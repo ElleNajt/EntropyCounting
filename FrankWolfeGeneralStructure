@@ -19,6 +19,34 @@ from scipy import array, linalg, dot
 ##Here a structure will be a point 
 
 
+######Tree counting
+
+def log_number_trees(graph, weight = False):
+    '''Computes the log of the number of trees, weighted or unweighted. 
+    
+    :graph: The input graph
+    :weight: the edge variable name that describes the edge weights
+    
+    '''
+    #Kirkoffs is the determinant of the minor..
+    #at some point this should be replaced with a Cholesky decomposition based algorithm, which is supposedly faster. 
+    if weight == False:
+        m = nx.laplacian_matrix(graph)[1:,1:]
+    if weight == True:
+        m = nx.laplacian_matrix(graph, weight = "tree_weight")[1:,1:]
+    m = csc_matrix(m)
+    splumatrix = scipy.sparse.linalg.splu(m)
+    diag_L = np.diag(splumatrix.L.A)
+    diag_U = np.diag(splumatrix.U.A)
+    S_log_L = [np.log(np.abs(s)) for s in diag_L]
+    S_log_U = [np.log(np.abs(s)) for s in diag_U]
+    LU_prod = np.sum(S_log_U) + np.sum(S_log_L)
+    return  LU_prod
+
+
+ 
+
+
 #Discrete sturcutre will just be  agraph...
 #With graph.graph["Function"].
 
@@ -178,6 +206,22 @@ def true_matching_marginals(graph):
     for e in edges:
         number_matchings[e] = number_matchings[e] / total_matchings
     return number_matchings
+
+def true_number_matchings(graph):
+    
+    edges = list(graph.edges())
+    
+    if len(graph.nodes) % 2 != 0:
+        return 0
+    
+    number_matchings = 0
+
+    for edge_set in itertools.combinations(edges, int(len(graph.nodes())/2)):
+        if nx.algorithms.matching.is_matching(graph, edge_set):
+            number_matchings += 1
+
+    return number_matchings   
+    
     
 def difference(graph, point_1, point_2):
     difference = {}
@@ -235,21 +279,29 @@ graph.graph["step"] = 1
 
 
 #structure_type = "tree"
-structure_type = "matching"
 
-if structure_type == "tree":
-    structure, initial_point = initialize_spanning_tree(graph)
-    marginals = true_tree_marginals(graph)
+def make_comparisons(graph, structure_type ="matching"):
 
-if structure_type == "matching":
-    structure, initial_point = initialize_matching(graph)
-    marginals = true_matching_marginals(graph)
+    if structure_type == "tree":
+        structure, initial_point = initialize_spanning_tree(graph)
+        true_value = np.exp(log_number_trees(graph))
+        #marginals = true_tree_marginals(graph)
+    
+    if structure_type == "matching":
+        structure, initial_point = initialize_matching(graph)
+        #marginals = true_matching_marginals(graph)
+        true_value = true_number_matchings(graph)
+    optimum = iterate(graph, initial_point, structure, steps = 1000)
 
-optimum = iterate(graph, initial_point, structure, steps = 1000)
+    program_value = np.exp(entropy(graph, optimum))
+    
+    
+    
+    return [program_value, true_value]
+#print(optimum)
 
-
-print(optimum)
-
-print(difference(graph, optimum, marginals).values())
+#print(difference(graph, optimum, marginals).values())
 
 #optimum = iterate(graph, optimum, steps = 100, structure)
+
+output = make_comparisons(graph, "tree")
