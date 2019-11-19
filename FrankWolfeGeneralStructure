@@ -270,13 +270,6 @@ graph = nx.cycle_graph(10)
 
 
 
-graph = nx.complete_graph(4)
-
-
-#graph = nx.grid_graph([m,m])
-
-graph.graph["step"] = 1
-
 
 #structure_type = "tree"
 
@@ -291,12 +284,13 @@ def make_comparisons(graph, structure_type ="matching"):
         structure, initial_point = initialize_matching(graph)
         #marginals = true_matching_marginals(graph)
         true_value = true_number_matchings(graph)
+        
     optimum = iterate(graph, initial_point, structure, steps = 1000)
 
     program_value = np.exp(entropy(graph, optimum))
     
     
-    
+    #Note that even if the true marginals are correct, the values returned may be very different.
     return [program_value, true_value]
 #print(optimum)
 
@@ -304,4 +298,10 @@ def make_comparisons(graph, structure_type ="matching"):
 
 #optimum = iterate(graph, optimum, steps = 100, structure)
 
-output = make_comparisons(graph, "tree")
+values = []
+
+for k in range(3,10):
+    graph = nx.complete_graph(k)
+    graph.graph["step"] = 1
+    output = make_comparisons(graph, "matching")
+    values.append(output)
