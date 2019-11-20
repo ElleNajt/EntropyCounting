@@ -13,6 +13,7 @@ import scipy.linalg
 from scipy.sparse import csc_matrix
 import scipy
 import itertools
+import copy
 from scipy import array, linalg, dot
 
 
@@ -208,6 +209,83 @@ def true_matching_marginals(graph):
         number_matchings[e] = number_matchings[e] / total_matchings
     return number_matchings
 
+
+def has_perfect_matching(graph):
+    
+    m = len(nx.max_weight_matching(graph))
+    if m == len(graph.nodes())/2 :
+        return True
+    else:
+        return False
+
+
+def partial_matching_extendable(graph, in_set, out_set):
+    
+    if in_set != []:
+        #we want to go through and delete the endpoints of all the edges in in_set
+        graph_contracted = copy.deepcopy(graph)
+        for e in in_set:
+            for v in e:
+                graph_contracted.remove_node(v)
+                #graph_contracted = nx.contracted_edge(graph_contracted, e)
+    else:
+        graph_contracted = copy.deepcopy(graph)
+        
+    graph_contracted.remove_edges_from(out_set)
+    
+    return [graph_contracted, has_perfect_matching(graph_contracted)]
+
+
+def back_tracking_recursion(graph, layer, in_set, out_set):
+    
+    print(in_set, out_set, layer)
+    
+    minor, extendable = partial_matching_extendable(graph, in_set, out_set)
+    
+    if extendable == False:
+        return [False]
+    
+    if len(in_set) == len(graph)/2:
+        return [in_set]    
+    else:
+        
+        processed_edge= graph.graph["ordered_edges"][layer]
+        layer += 1
+        while processed_edge not in minor.edges():
+            processed_edge= graph.graph["ordered_edges"][layer]
+            
+            layer += 1
+            if layer > len(graph.edges()):
+                return [False]
+        
+        left_tree = back_tracking_recursion(graph, layer, in_set + [processed_edge], out_set)
+        right_tree = back_tracking_recursion(graph, layer, in_set, out_set + [processed_edge])
+    
+    return left_tree + right_tree
+    
+    
+
+def matchings_backtracking(graph):
+    
+    #This will use self reducibility and Edmonds matching algorithm to enumerate more efficiently.
+    
+    #This will do backtracking enumeration through the edge subset tree. 
+    
+    layer = 0
+    graph.graph["ordered_edges"] = list(graph.edges())
+    in_set = []
+    out_set = []
+    return back_tracking_recursion(graph, layer, in_set, out_set)
+
+def number_matchings_backtracking(graph):
+    
+    list_of_matchings = matchings_backtracking(graph)
+    counter = 0
+    for m in list_of_matchings:
+        if m != False:
+            counter += 1
+    return counter
+
 def true_number_matchings(graph):
     
     edges = list(graph.edges())
@@ -299,32 +377,36 @@ def make_comparisons(graph, structure_type ="matching"):
 
 #optimum = iterate(graph, optimum, steps = 100, structure)
 
-values = []
-structure_type = "matching"
 
 #Reasonable experiment to do -- fix the size of the graph, and plot the difference between the true, and see if "constant"
 
 #There are some classes of non-bipartite graphs where we can count the number of perfect matchings, for example graphs of bounded treewidth. This would be a reasonable thing to do next. It's hard to tell anything from this data.
 
-atlas = nx.graph_atlas_g()
 
-for k in range(10,35):
-    #graph = nx.complete_graph(k*2)
-    #graph = nx.gnm_random_graph(6,15)
-    graph = atlas[170 + k]
-    #Make sure to use even size
-    graph.graph["step"] = 1
-    output = make_comparisons(graph, structure_type)
-    values.append(output)
-    print(np.log(output))
+def test():
     
     
-structure_type = "tree"
-
-for k in range(4,10):
-    graph = nx.complete_graph(k)
-    #Because if no matchings, then of course doesn't approxiamte well.
-    graph.graph["step"] = 1
-    output = make_comparisons(graph, structure_type)
-    values.append(output)
-    print(np.log(output))
+    values = []
+    structure_type = "matching"
+    atlas = nx.graph_atlas_g()
+    
+    for k in range(10,35):
+        #graph = nx.complete_graph(k*2)
+        #graph = nx.gnm_random_graph(6,15)
+        graph = atlas[170 + k]
+        #Make sure to use even size
+        graph.graph["step"] = 1
+        output = make_comparisons(graph, structure_type)
+        values.append(output)
+        print(np.log(output))
+        
+        
+    structure_type = "tree"
+    
+    for k in range(4,10):
+        graph = nx.complete_graph(k)
+        #Because if no matchings, then of course doesn't approxiamte well.
+        graph.graph["step"] = 1
+        output = make_comparisons(graph, structure_type)
+        values.append(output)
+        print(np.log(output))
