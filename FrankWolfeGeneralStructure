@@ -238,7 +238,7 @@ def partial_matching_extendable(graph, in_set, out_set):
 
 def back_tracking_recursion(graph, layer, in_set, out_set):
     
-    print(in_set, out_set, layer)
+    #print(in_set, out_set, layer)
     
     minor, extendable = partial_matching_extendable(graph, in_set, out_set)
     
@@ -381,6 +381,10 @@ def make_comparisons(graph, structure_type ="matching"):
 #Reasonable experiment to do -- fix the size of the graph, and plot the difference between the true, and see if "constant"
 
 #There are some classes of non-bipartite graphs where we can count the number of perfect matchings, for example graphs of bounded treewidth. This would be a reasonable thing to do next. It's hard to tell anything from this data.
+
+for k in range(1,5):
+    print(2*k, (number_matchings_backtracking(nx.complete_graph(2*k))))
+    #Checks Out :-)
 
 
 def test():
