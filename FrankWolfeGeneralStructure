@@ -75,7 +75,8 @@ def entropy(graph, point):
     for e in graph.edges():
         p = point[e]
         entropy += -1 * ( p * math.log(p) + (1 - p)* math.log( 1  - p))
-    
+        #This formula is right! Note that this is not the entropy of the distribution, but the sum of the marginal entropies. This is the max entropy program.
+        #entropy += -1 * ( p * math.log(p) )
     return entropy
 
 def move(graph, current_point, target_point, gamma):
@@ -368,7 +369,7 @@ def make_comparisons(graph, structure_type ="matching"):
     optimum = iterate(graph, initial_point, structure, steps = 1000)
 
     program_value = np.exp(entropy(graph, optimum))
-    
+    #print("marginals", marginals)
     
     #Note that even if the true marginals are correct, the values returned may be very different.
     return [program_value, true_value]
@@ -387,6 +388,22 @@ def testing_backtracking():
     for k in range(1,10):
         print(2*k, (number_matchings_backtracking(nx.complete_graph(2*k))))
     #Checks Out :-)
+    
+    
+def complete_graph():
+    #On the complete graph we can compute the value that the program will take.
+    
+    for n in range(2,80):
+        n = 2*n
+        m = n*(n-1)/2
+        p = ( n /2 )*(1/m)
+        entropy = m * (  ( 1 / (n -1)) * np.log( (n - 1)) + ( 1 - 1/(n-1)) * np.log( (n - 1)/ (n - 2)))
+        estimate = np.exp(entropy)
+        true_value = math.factorial(n)/ ( (2**(n/2))* (math.factorial(n/2)))
+        
+        print(n, (entropy - np.log(true_value))/n)
+        
+    #This tends to 1! Cool. I'm sure this can be shown analytically. Maybe also for some other classes of graphs.
 
 
 def test():
@@ -397,7 +414,7 @@ def test():
     atlas = nx.graph_atlas_g()
     
     print("comparison on matchings")
-    for k in range(2,10):
+    for k in range(2,6):
         graph = nx.complete_graph(k*2)
         #graph = nx.grid_graph([2*k,k])
         #For grids its pretty bad...
@@ -416,7 +433,7 @@ def test():
     structure_type = "tree"
     print("comparison on trees")
     
-    for k in range(2,10):
+    for k in range(2,6):
         graph = nx.complete_graph(2*k)
         #Because if no matchings, then of course doesn't approxiamte well.
         graph.graph["step"] = 1
