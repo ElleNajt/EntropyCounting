@@ -396,9 +396,13 @@ def test():
     structure_type = "matching"
     atlas = nx.graph_atlas_g()
     
-    for k in range(2,6):
-        #graph = nx.complete_graph(k*2)
-        graph = nx.grid_graph([2*k,k])
+    print("comparison on matchings")
+    for k in range(2,10):
+        graph = nx.complete_graph(k*2)
+        #graph = nx.grid_graph([2*k,k])
+        #For grids its pretty bad...
+        
+        
         #nodes = 10
         #graph = nx.dense_gnm_random_graph(nodes,20, seed = np.random)
         #graph = atlas[170 + k]
@@ -410,9 +414,10 @@ def test():
         
         
     structure_type = "tree"
+    print("comparison on trees")
     
-    for k in range(4,10):
-        graph = nx.complete_graph(k)
+    for k in range(2,10):
+        graph = nx.complete_graph(2*k)
         #Because if no matchings, then of course doesn't approxiamte well.
         graph.graph["step"] = 1
         output = make_comparisons(graph, structure_type)
