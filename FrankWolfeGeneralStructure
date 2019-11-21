@@ -397,15 +397,50 @@ def complete_graph():
         n = 2*n
         m = n*(n-1)/2
         p = ( n /2 )*(1/m)
-        entropy = m * (  ( 1 / (n -1)) * np.log( (n - 1)) + ( 1 - 1/(n-1)) * np.log( (n - 1)/ (n - 2)))
-        estimate = np.exp(entropy)
+        entropy_program = m * (  ( 1 / (n -1)) * np.log( (n - 1)) + ( 1 - 1/(n-1)) * np.log( (n - 1)/ (n - 2)))
+        estimate = np.exp(entropy_program)
         true_value = math.factorial(n)/ ( (2**(n/2))* (math.factorial(n/2)))
-        
-        print(n, (entropy - np.log(true_value))/n)
+        print(estimate, true_value)
+        print(n, (entropy_program - np.log(true_value))/n)
         
     #This tends to 1! Cool. I'm sure this can be shown analytically. Maybe also for some other classes of graphs.
+    
+    
+def perfect_matchings_in_grid(m,n):
+    
+    #Returns the number of perfect matchings in an mxn grid graph.
+    
+    partial_product = 1
+    
+    for j in range(1,m+1):
+        for k in range(1,n+1):
+            partial_product *= ( 4 * math.cos( (math.pi * j ) / (m + 1))**2 + 4 * math.cos( (math.pi * k ) / (n + 1))**2)
+            
+    return np.power( partial_product, 1/4)
+    
+    
+def FKT(planar_graph):
+    
+    ##Implement for planar graphs... TODO: I have code for this somewhere.
+    
 
 
+def grid_graph():
+    
+    
+    for n in range(2,80):
+        
+        graph = nx.grid_graph([2*k,k])
+        graph.graph["step"] = 1        
+        structure, initial_point = initialize_matching(graph)    
+        optimum = iterate(graph, initial_point, structure, steps = 1000)
+        entropy_program = entropy(graph, optimum)
+        program_value = np.exp(entropy_program)
+        
+        true_value = perfect_matchings_in_grid(2*k, k)
+        #Formula for perfect matchings in grid graph
+        print(n, (entropy_program - np.log(true_value))/n)
+        
 def test():
     
     
@@ -415,8 +450,9 @@ def test():
     
     print("comparison on matchings")
     for k in range(2,6):
-        graph = nx.complete_graph(k*2)
-        #graph = nx.grid_graph([2*k,k])
+        k = 2*k
+        #graph = nx.complete_graph(k)
+        graph = nx.grid_graph([2*k,k])
         #For grids its pretty bad...
         
         
@@ -427,6 +463,7 @@ def test():
         graph.graph["step"] = 1
         output = make_comparisons(graph, structure_type)
         values.append(output)
+        print(k,(np.log(output[0]) - np.log(output[1]))/k)
         print(output)
         
         
