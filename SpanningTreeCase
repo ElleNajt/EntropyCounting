@@ -190,11 +190,6 @@ graph = nx.complete_graph(4)
 
 #graph =nx.complete_bipartite_graph(10,10)
 
-#seems to work for complete bipartite, and cycles
-#but not complete 
-
-#...maybe can prove it for the cycle graph?
-
 nx.draw(graph,labels={v : str(v) for v in graph.nodes()})
 
 #point will be a dictionary that keeps track of the current location in the ST polytope
