@@ -1,5 +1,5 @@
 # EntropyCounting
-Implementing Anari et al.
+Implementing: https://arxiv.org/abs/1807.00929
 
 Some background information: https://or.stackexchange.com/posts/2899
 
